@@ -113,7 +113,7 @@ const scales = {
     pt: scalePatterns.major31
   }
 }
-let currentScale = scales.neji31;
+let currentScale = scales.monarda;
 
 //midiPitches[0] = [0, 4, 7, -12, -16, 34]
 
@@ -179,31 +179,55 @@ function draw () {
 function handleKeyStart (evt) {
   
   if ("12345678".includes(evt.key)) {
-    print("Switched to page " + evt.key);
-    currentStep = evt.key - 1;
-    playSynth(midiPitches[currentStep], 0)
+    stepToPage(parseInt(evt.key) -1)
   } else {
     print(evt.key);
   }
 }
 
-function buttonStepBack () {
-  currentStep--;
-  if (currentStep < 0) currentStep = 7
-  playSynth(midiPitches[currentStep], 0)
-}
-function buttonStepForward () {
-  playSynth(midiPitches[currentStep], 0)
-  currentStep++;
-  if (currentStep > 7) currentStep = 0
-  playSynth(midiPitches[currentStep], 0.2)
+// function buttonStepBack () {
+//   currentStep--;
+//   if (currentStep < 0) currentStep = 7
+//   playSynth(midiPitches[currentStep], 0)
+// }
+// function buttonStepForward () {
+//   playSynth(midiPitches[currentStep], 0)
+//   currentStep++;
+//   if (currentStep > 7) currentStep = 0
+//   playSynth(midiPitches[currentStep], 0.2)
+// }
+
+function stepToPage (pageNum) {
+  print("Switched to page " + pageNum);
+  currentStep = pageNum;
+  playSynth(midiPitches[currentStep], 0);
+
+  // change color
+  for (let i = 0; i <= 7; i++) {
+    const button_stepToI = document.getElementById('button_step' + (i+1));
+    if (i === currentStep) {
+      button_stepToI.style.backgroundColor = "#123456";
+    } else {
+      button_stepToI.style.backgroundColor = "#1F1946";
+    }
+  }
 }
 
 function createGUI () {
-  const button_stepback = document.getElementById('button_stepback')
-  button_stepback.addEventListener('click', buttonStepBack);
-  const button_stepforward = document.getElementById('button_stepforward')
-  button_stepforward.addEventListener('click', buttonStepForward);
+  for (let i = 1; i <= 8; i++) {
+    const button_stepToI = document.getElementById('button_step' + i);
+    print (button_stepToI);
+    button_stepToI.addEventListener('touchstart', function () {
+      stepToPage(parseInt(this.innerText) -1);
+    });
+    button_stepToI.addEventListener('mousedown', function () {
+      if (usingMouse) stepToPage(parseInt(this.innerText) -1);
+    });
+  }
+  //const button_stepback = document.getElementById('button_stepback')
+  //button_stepback.addEventListener('click', buttonStepBack);
+  //const button_stepforward = document.getElementById('button_stepforward')
+  //button_stepforward.addEventListener('click', buttonStepForward);
 }
 
 function evtTouchesToArray (evtTouches) {
