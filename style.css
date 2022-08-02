@@ -1,0 +1,52 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  background-color: #271D62;
+  height: 100%; 
+  scrollbar-width: none;
+}
+body {
+  -webkit-touch-callout: none;
+  /* prevent callout to copy image, etc when tap to hold */
+
+  -webkit-text-size-adjust: none;
+  /* prevent webkit from resizing text to fit */
+
+  -webkit-user-select: none;
+  user-select: none;
+  /* prevent copy paste, to allow, change 'none' to 'text' */
+
+  overflow: hidden;
+  position: fixed;
+}
+
+*{touch-action: none;}
+
+canvas {
+  display: block;
+}
+
+button {
+  width: 100%;
+  height: 100%;
+  background-color: #1F1946;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+button:active {
+  background-color: black;
+}
+
+#toolbar {
+  display: flex;
+  flex-direction: row;
+  gap: .1em;
+  height: 70px;
+  margin: 0em;
+  max-width: 500px;
+}

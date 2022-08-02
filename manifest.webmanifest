@@ -1,0 +1,9 @@
+{
+    "short_name": "Relattice",
+    "name": "Relattice Isomorphic Chord Sequencer",
+    "start_url": "/index.html",
+    "background_color": "#333333",
+    "display": "standalone",
+    "scope": "",
+    "theme_color": "#333333"
+}
