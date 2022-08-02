@@ -8,13 +8,14 @@ let midiPitches = Array.from({ length: 8 }, () => ([]));
 let newMidiPitches = [];
 let middlePitch = 440;
 
-let baseKeySize = 55;
+let baseKeySize = 50;
 let keySize = 0;
 let maxX = 1;
 let maxY = 1;
 
 // touch gestures
 
+let wasGesture = "";
 let usingMouse = false;
 let hoverPosition = undefined;
 
@@ -119,7 +120,7 @@ let currentScale = scales.neji31;
 
 function setup() {
   let cnv = createCanvas(windowWidth, windowHeight-70);
-  baseKeySize = (width > height) ? 65 : 55;
+  baseKeySize = (width > height) ? 65 : 50;
 
   cnv.style('display', 'block');
   cnv.parent('sketch-holder');
@@ -145,7 +146,7 @@ function setup() {
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight-70);
-  baseKeySize = (width > height) ? 65 : 55;
+  baseKeySize = (width > height) ? 65 : 50;
 }
 
 function draw () {
@@ -219,6 +220,7 @@ function evtTouchesToArray (evtTouches) {
 }
 
 function reactToIStart (newTouches) {
+  wasGesture = ""
   if (totalTouches.length === 2) {
     zoomStart = dist(totalTouches[0].x, totalTouches[0].x, totalTouches[1].y, totalTouches[1].y)
     scrollStartX = undefined
@@ -329,10 +331,15 @@ function handleWheel (evt) {
 function reactToIEnd (newTouches) {
   let scrollDelta = getScrollDelta(0, 0)
   let zoomDelta = getZoomDelta(1)
-
   scrollXSinceStart += scrollDelta.x;
   scrollYSinceStart += scrollDelta.y;
   zoomSinceStart *= zoomDelta;
+
+  if (Math.abs(1-zoomDelta) > 0.02) {
+    wasGesture = "zoom"
+  } else if (Math.abs(scrollDelta.x) > 10 || Math.abs(scrollDelta.y) > 10) {
+    wasGesture = "pan"
+  }
 
   scrollStartX = undefined
   scrollStartY = undefined
@@ -342,10 +349,10 @@ function reactToIEnd (newTouches) {
   scrollToY = undefined
   zoomTo = undefined
 
-  // scroll doesn't trigger note toggles or anything else at this point
-  if (Math.abs(scrollDelta.x) > 10 || Math.abs(1-zoomDelta) > 0.1) return
-
-  keySize = baseKeySize * getZoomDelta(zoomSinceStart) //wtf?
+  // dont toggle notes after a gesture
+  
+  if (wasGesture === "zoom" || wasGesture === "pan") return
+  //keySize = baseKeySize * getZoomDelta(zoomSinceStart) //wtf?
 
   if (mode === "edit") {
 
