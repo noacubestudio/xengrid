@@ -131,6 +131,12 @@ function setup() {
   sketchHolder.addEventListener("gesturestart", function(e) {e.preventDefault();});
   sketchHolder.addEventListener('wheel', handleWheel, { passive: false });
 
+  sketchHolder.addEventListener("mousedown", handleMouseStart, false);
+  sketchHolder.addEventListener("mousemove", handleMouseMove, false);
+  sketchHolder.addEventListener("mouseup", handleMouseEnd, false);
+
+  document.addEventListener("keydown", handleKeyStart);
+
   background("#271D62");
   createGUI()
 
@@ -167,6 +173,36 @@ function draw () {
   infoText += "Scroll:" + scrollXSinceStart + "_" + scrollYSinceStart + ", "
   infoText += "Zoom:" + zoomSinceStart + ", "
   text( infoText + "   " + debugText, 4, 4);
+}
+
+function handleKeyStart (evt) {
+  
+  if ("12345678".includes(evt.key)) {
+    print("Switched to page " + evt.key);
+    currentStep = evt.key - 1;
+    playSynth(midiPitches[currentStep], 0)
+  } else {
+    print(evt.key);
+  }
+}
+
+function buttonStepBack () {
+  currentStep--;
+  if (currentStep < 0) currentStep = 7
+  playSynth(midiPitches[currentStep], 0)
+}
+function buttonStepForward () {
+  playSynth(midiPitches[currentStep], 0)
+  currentStep++;
+  if (currentStep > 7) currentStep = 0
+  playSynth(midiPitches[currentStep], 0.2)
+}
+
+function createGUI () {
+  const button_stepback = document.getElementById('button_stepback')
+  button_stepback.addEventListener('click', buttonStepBack);
+  const button_stepforward = document.getElementById('button_stepforward')
+  button_stepforward.addEventListener('click', buttonStepForward);
 }
 
 function evtTouchesToArray (evtTouches) {
@@ -230,9 +266,9 @@ function mouseToTouch () {
   }
 }
 
-function mousePressed () {
+function handleMouseStart (evt) {
 
-  if (!usingMouse) return false;
+  if (!usingMouse || evt.button !== 0) return false;
   totalTouches = [mouseToTouch()];
 
   reactToIStart(totalTouches);
@@ -280,7 +316,7 @@ function mouseDragged () {
   reactToIDrag();
 }
 
-function mouseMoved () {
+function handleMouseMove () {
   usingMouse = true;
   hoverPosition = mouseToTouch();
 }
@@ -333,7 +369,7 @@ function reactToIEnd (newTouches) {
   //newMidiPitches = []
 }
 
-function handleTouchEnd(evt) {
+function handleTouchEnd (evt) {
   evt.preventDefault();
 
   const newTouches = evtTouchesToArray(evt.changedTouches);
@@ -347,8 +383,8 @@ function handleTouchEnd(evt) {
   reactToIEnd(newTouches);
 }
 
-function mouseReleased() {
-  if (!usingMouse) return false;
+function handleMouseEnd (evt) {
+  if (!usingMouse || evt.button !== 0) return false;
   totalTouches = [];
 
   const removePosition = mouseToTouch();
@@ -463,6 +499,15 @@ function drawGrid() {
       }
       rect(pixelPos.x+keySize*0.1, pixelPos.y+keySize*0.08, keySize*0.8, keySize*0.8, keySize*0.15)
 
+      // hints of next and previous
+      fill(lerpColor(color("white"), baseColor, 0.8))
+      if (inLastStep) {
+        arc(pixelPos.x + keySize/2, pixelPos.y + keySize/2 - keySize*0.02, keySize*0.8, keySize*0.8, HALF_PI, HALF_PI*3)
+      }
+      if (inNextStep) {
+        arc(pixelPos.x + keySize/2, pixelPos.y + keySize/2 - keySize*0.02, keySize*0.8, keySize*0.8, HALF_PI*3, HALF_PI)
+      }
+
       const circleSize = map(scaleStep, 1, currentScale.octave, keySize*0.2, keySize*0.7)
       fill(color("#0B0E4520"))
       if (inCurrentStep) {
@@ -470,13 +515,6 @@ function drawGrid() {
       }
       if (scaleStep > 0) circle(pixelPos.x + keySize/2, pixelPos.y + keySize/2 - keySize*0.03, circleSize)
 
-
-      if (inLastStep) {
-        arc(pixelPos.x + keySize/2, pixelPos.y + keySize/2, keySize, keySize, HALF_PI, HALF_PI*3)
-      }
-      if (inNextStep) {
-        arc(pixelPos.x + keySize/2, pixelPos.y + keySize/2, keySize, keySize, HALF_PI*3, HALF_PI)
-      }
 
       if (inCursorStep || inTouchStep) {
         fill("blue")
@@ -508,22 +546,6 @@ function drawGrid() {
   pop()
 }
 
-function createGUI () {
-  
-  button_stepback = document.getElementById('button_stepback')
-  button_stepback.addEventListener('click', () => {
-    currentStep--;
-    if (currentStep < 0) currentStep = 7
-    playSynth(midiPitches[currentStep], 0)
-  });
-  button_stepforward = document.getElementById('button_stepforward')
-  button_stepforward.addEventListener('click', () => {
-    playSynth(midiPitches[currentStep], 0)
-    currentStep++;
-    if (currentStep > 7) currentStep = 0
-    playSynth(midiPitches[currentStep], 0.2)
-  });
-}
 
 function playSynth (midiArray, delay) {
 
