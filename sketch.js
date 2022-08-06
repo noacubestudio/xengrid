@@ -33,8 +33,9 @@ let scrollXSinceStart = 0;
 let scrollYSinceStart = 0;
 let zoomSinceStart = 1;
 
+let frameCountdown = 2;
 
-let mode = "edit";
+let mode = "play";
 let debugText = "";
 
 const scalePatterns = {
@@ -51,13 +52,33 @@ const scalePatterns = {
     ],
     gridUp: 18,
     gridRight: 5
-  }
+  },
+  major19: {
+    highlighting: [
+      1, 0, 0, 1, 0, 0, 1, -1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, -1
+    ],
+    gridUp: 11,
+    gridRight: 3
+  },
+  major21: {
+    gridUp: 8,
+    gridRight: 3
+  },
+  major27: {
+    highlighting: [
+      1, 0, -1, -1, -1, 1, 0, -1, -1, -1, 1, 1, -1, -1, -1, -1, 1, 0, -1, -1, -1, 1, 0, -1, -1, -1, 1, -1
+    ],
+    gridUp: 16,
+    gridRight: 5
+  },
 }
 
 const scales = {
   monarda: {
     name: "Monarda",
-    octave: 12,
+    urlName: "12monarda",
+    octaveSize: 12,
+    type: "ratios",
     pitches: [
       "1/1",
       "17/16",
@@ -74,9 +95,32 @@ const scales = {
     ], 
     pt: scalePatterns.major12 
   },
+  edo19: {
+    name: "19 EDO",
+    urlName: "19",
+    octaveSize: 19,
+    type: "equal",
+    pt: scalePatterns.major19
+  },
+  edo21: {
+    name: "21 EDO",
+    urlName: "21",
+    octaveSize: 21,
+    type: "equal",
+    pt: scalePatterns.major21
+  },
+  edo27: {
+    name: "27 EDO",
+    urlName: "27",
+    octaveSize: 27,
+    type: "equal",
+    pt: scalePatterns.major27
+  },
   neji31: {
     name: "31 JI",
-    octave: 31,
+    urlName: "31ji",
+    octaveSize: 31,
+    type: "ratios",
     pitches: [
       "1/1",
       "64/63",
@@ -113,12 +157,51 @@ const scales = {
     pt: scalePatterns.major31
   }
 }
-let currentScale = scales.monarda;
+// starting scale
+let currentScale = scales.edo19;
 
 //midiPitches[0] = [0, 4, 7, -12, -16, 34]
 
+function getKeyByValue(object, value) {
+  return Object.keys(object).find(key => object[key] === value);
+}
+
+function loadFromURL () {
+  const params = new Proxy(new URLSearchParams(window.location.search), {
+    get: (searchParams, prop) => searchParams.get(prop),
+  });
+  if (params.scale !== undefined) {
+    const foundScale = Object.keys(scales).find(key => scales[key].urlName === params.scale)
+    if (foundScale !== undefined) {
+      currentScale = scales[foundScale];
+      print("Loaded with Scale: " + currentScale.name)
+    }
+  }
+}
+
+function writeToURL () {
+
+  let URL = String(window.location.href)
+  if (URL.includes("?")) {
+    URL = URL.split("?",1)
+  }
+  const newParams = new URLSearchParams();
+
+  //changes
+  print(currentScale)
+  newParams.append("scale",currentScale.urlName)
+
+  //apply
+  if (URLSearchParams.toString(newParams).length > 0) {
+    URL += "?" + newParams
+  }
+  window.history.replaceState("", "", URL)
+}
+
 
 function setup() {
+  loadFromURL();
+
   let cnv = createCanvas(windowWidth, windowHeight-70);
   baseKeySize = (width > height) ? 65 : 50;
 
@@ -142,6 +225,8 @@ function setup() {
   createGUI()
 
   compressor.connect(audioCtx.destination);
+
+  writeToURL();
 }
 
 function windowResized() {
@@ -149,31 +234,51 @@ function windowResized() {
   baseKeySize = (width > height) ? 65 : 50;
 }
 
+function drawAfterInput () {
+  frameCountdown = 3;
+  loop();
+}
+
 function draw () {
-  background("#271D62")
 
-  keySize = baseKeySize * getZoomDelta(zoomSinceStart) //wtf?
-
-  maxX = Math.floor(width/keySize) + 4
-  maxY = Math.floor(height/keySize) + 3
+  drawOnce();
+  if (frameCountdown > 0) {
+    frameCountdown--;
+  } else {
+    noLoop();
+    frameCountdown = 3;
+  }
   
-  textAlign(CENTER, CENTER);
-  textFont("IBM Plex Sans");
-  textSize(10);
-  drawGrid();
 
-  fill("EEE");
-  stroke("#0E0F2C");
-  strokeWeight(4);
-  textSize(11);
-  textAlign(LEFT, TOP);
+  function drawOnce () {
+    background("#271D62");
 
-  let infoText = "";
-  infoText += "Page: " + (currentStep+1) + ", "
-  infoText += "Touches: " + totalTouches.length + ", "
-  infoText += "Scroll:" + scrollXSinceStart + "_" + scrollYSinceStart + ", "
-  infoText += "Zoom:" + zoomSinceStart + ", "
-  text( infoText + "   " + debugText, 4, 4);
+    keySize = baseKeySize * getZoomDelta(zoomSinceStart); //wtf?
+
+    maxX = Math.floor(width/keySize) + 4;
+    maxY = Math.floor(height/keySize) + 3;
+    
+    textAlign(CENTER, CENTER);
+    textFont("IBM Plex Sans");
+    textSize(10);
+    drawGrid();
+
+    fill("EEE");
+    stroke("#0E0F2C");
+    strokeWeight(4);
+    textSize(11);
+    textAlign(LEFT, TOP);
+
+    let infoText = "";
+    infoText += "Page: " + (currentStep+1) + ", "
+    infoText += "Scale: " + currentScale.name + ", "
+    infoText += "Mode: " + mode + ", "
+    infoText += "Touches: " + totalTouches.length + ", "
+    infoText += "Scroll:" + scrollXSinceStart + "_" + scrollYSinceStart + ", "
+    infoText += "Zoom:" + zoomSinceStart + ", "
+    infoText += "Frame:" + frameCount + ", "
+    text( infoText + "   " + debugText, 4, 4);
+  } 
 }
 
 function handleKeyStart (evt) {
@@ -185,17 +290,6 @@ function handleKeyStart (evt) {
   }
 }
 
-// function buttonStepBack () {
-//   currentStep--;
-//   if (currentStep < 0) currentStep = 7
-//   playSynth(midiPitches[currentStep], 0)
-// }
-// function buttonStepForward () {
-//   playSynth(midiPitches[currentStep], 0)
-//   currentStep++;
-//   if (currentStep > 7) currentStep = 0
-//   playSynth(midiPitches[currentStep], 0.2)
-// }
 
 function stepToPage (pageNum) {
   print("Switched to page " + pageNum);
@@ -213,17 +307,47 @@ function stepToPage (pageNum) {
   }
 }
 
+function switchMode () {
+  if (mode === "play") {
+    mode = "edit";
+  } else {
+    mode = "play";
+  }
+}
+
 function createGUI () {
   for (let i = 1; i <= 8; i++) {
     const button_stepToI = document.getElementById('button_step' + i);
     print (button_stepToI);
     button_stepToI.addEventListener('touchstart', function () {
       stepToPage(parseInt(this.innerText) -1);
+      drawAfterInput();
     });
     button_stepToI.addEventListener('mousedown', function () {
-      if (usingMouse) stepToPage(parseInt(this.innerText) -1);
+      if (usingMouse) {
+        stepToPage(parseInt(this.innerText) -1);
+        drawAfterInput();
+      }
     });
   }
+
+  const button_mode = document.getElementById('button_mode');
+  button_mode.innerText = mode;
+  button_mode.addEventListener('touchstart', function () {
+    switchMode();
+    this.innerText = mode;
+    button_mode.style.backgroundColor = (mode === "edit") ? "#660011" : "#123456";
+    drawAfterInput();
+  });
+  button_mode.addEventListener('mousedown', function () {
+    if (usingMouse) {
+      switchMode(); 
+      this.innerText = mode;
+      button_mode.style.backgroundColor = (mode === "edit") ? "#660011" : "#123456";
+      drawAfterInput();
+    }
+  });
+
   //const button_stepback = document.getElementById('button_stepback')
   //button_stepback.addEventListener('click', buttonStepBack);
   //const button_stepforward = document.getElementById('button_stepforward')
@@ -245,33 +369,35 @@ function evtTouchesToArray (evtTouches) {
 
 function reactToIStart (newTouches) {
   wasGesture = ""
-  if (totalTouches.length === 2) {
-    zoomStart = dist(totalTouches[0].x, totalTouches[0].x, totalTouches[1].y, totalTouches[1].y)
-    scrollStartX = undefined
-    scrollStartY = undefined
-  } else if (totalTouches.length === 1) {
-    // track movement from touchstart to touchend
-    scrollStartX = newTouches[0].x
-    scrollStartY = newTouches[0].y
-    zoomStart = undefined
-  } else {
-    scrollStartX = undefined
-    scrollStartY = undefined
-    zoomStart = undefined
+  if (mode !== "play") {
+    if (totalTouches.length === 2) {
+      zoomStart = dist(totalTouches[0].x, totalTouches[0].x, totalTouches[1].y, totalTouches[1].y)
+      scrollStartX = undefined
+      scrollStartY = undefined
+    } else if (totalTouches.length === 1) {
+      // track movement from touchstart to touchend
+      scrollStartX = newTouches[0].x
+      scrollStartY = newTouches[0].y
+      zoomStart = undefined
+    } else {
+      scrollStartX = undefined
+      scrollStartY = undefined
+      zoomStart = undefined
+    }
   }
 
-  newTouches.forEach((t) => {
-    //for each touch, get which square is there...
-    const sqPos = pixelToXy(t.x, t.y)
-    const relStep = xyToRelstep(sqPos.x + 2, sqPos.y)
-    //debugText += relStep + " / "
-  
-    const alreadyAt = newMidiPitches.indexOf(relStep)
-    if (alreadyAt === -1) {
-      newMidiPitches.push(relStep)
-    }
-  });
-  newMidiPitches = []
+  if (mode === "play") {
+    scrollDelta = getScrollDelta(scrollXSinceStart, scrollYSinceStart)
+    
+    newTouches.forEach((t) => {
+      //for each touch, get which square is there...
+      const sqPos = pixelToXy(t.x - scrollDelta.x, t.y - scrollDelta.y)
+      const relStep = xyToRelstep(sqPos.x + 2, sqPos.y)
+      playSynth([relStep], 0);
+    });
+  }
+
+  drawAfterInput();
 }
 
 function handleTouchStart (evt) {
@@ -301,20 +427,23 @@ function handleMouseStart (evt) {
 }
 
 function reactToIDrag () {
-  if (totalTouches.length === 2) {
-    zoomTo = dist(totalTouches[0].x, totalTouches[0].y, totalTouches[1].x, totalTouches[1].y)
-    scrollToX = undefined
-    scrollToY = undefined
-  } else if (totalTouches.length === 1) {
-    // track movement from touchstart to touchend
-    scrollToX = totalTouches[0].x
-    scrollToY = totalTouches[0].y
-    zoomTo = undefined
-  } else {
-    scrollToX = undefined
-    scrollToY = undefined
-    zoomTo = undefined
+  if (mode !== "play") {
+    if (totalTouches.length === 2) {
+      zoomTo = dist(totalTouches[0].x, totalTouches[0].y, totalTouches[1].x, totalTouches[1].y)
+      scrollToX = undefined
+      scrollToY = undefined
+    } else if (totalTouches.length === 1) {
+      // track movement from touchstart to touchend
+      scrollToX = totalTouches[0].x
+      scrollToY = totalTouches[0].y
+      zoomTo = undefined
+    } else {
+      scrollToX = undefined
+      scrollToY = undefined
+      zoomTo = undefined
+    }
   }
+  drawAfterInput();
 }
 
 function handleTouchMove (evt) {
@@ -353,6 +482,8 @@ function handleWheel (evt) {
 }
 
 function reactToIEnd (newTouches) {
+  drawAfterInput();
+
   let scrollDelta = getScrollDelta(0, 0)
   let zoomDelta = getZoomDelta(1)
   scrollXSinceStart += scrollDelta.x;
@@ -394,10 +525,10 @@ function reactToIEnd (newTouches) {
       } else {
         midiPitches[currentStep].splice(alreadyAt, 1)
       }
+      
     });
-    playSynth(midiPitches[currentStep], 0)
+    playSynth(midiPitches[currentStep], 0);
   }
-  //newMidiPitches = []
 }
 
 function handleTouchEnd (evt) {
@@ -430,7 +561,7 @@ function pixelToXy (px, py) {
 }
 
 function xyToRelstep (x, y) {
-  const middleStep = (Math.floor((maxX-Math.floor(maxY/2))/2))*currentScale.pt.gridRight -currentScale.pt.gridRight + Math.floor(maxY/2)*currentScale.pt.gridUp - currentScale.octave
+  const middleStep = (Math.floor((maxX-Math.floor(maxY/2))/2))*currentScale.pt.gridRight -currentScale.pt.gridRight + Math.floor(maxY/2)*currentScale.pt.gridUp - currentScale.octaveSize
   return (x-Math.floor(y/2))*currentScale.pt.gridRight + y*currentScale.pt.gridUp -middleStep
 }
 
@@ -474,7 +605,7 @@ function getZoomDelta (start) {
   return zoomDelta;
 }
 
-function drawGrid() {
+function drawGrid () {
 
   push()
 
@@ -491,20 +622,24 @@ function drawGrid() {
       pixelPos.y += scrollDelta.restY
       const relStep = xyToRelstep(x - scrollDelta.repetitionsX, y + scrollDelta.repetitionsY*2);
 
-      const relOct = Math.floor(relStep / currentScale.octave)
-      const scaleStep = (relStep+currentScale.octave*128) % currentScale.octave
-      const scaleStepName = currentScale.pitches[scaleStep]
+      const relOct = Math.floor(relStep / currentScale.octaveSize)
+      const scaleStep = (relStep+currentScale.octaveSize*128) % currentScale.octaveSize
+      const scaleStepName = (currentScale.type === "ratios") ? currentScale.pitches[scaleStep] : scaleStep
       
       const inCurrentStep = midiPitches[currentStep].includes(relStep)
       const inLastStep = (currentStep > 0) ? midiPitches[currentStep-1].includes(relStep) : midiPitches[7].includes(relStep)
       const inNextStep = (currentStep < 7) ? midiPitches[currentStep+1].includes(relStep) : midiPitches[0].includes(relStep)
-      const inCursorStep = false//xyInSquare(mouseX, mouseY, pixelPos.x, pixelPos.y)
-      let inTouchStep = inCursorStep
+
+      let inActiveKeys = false;
+      let isCursorKey = false;
+      if (usingMouse) {
+        isCursorKey = xyInSquare(hoverPosition.x, hoverPosition.y, pixelPos.x, pixelPos.y);
+      }
       touches.forEach((t) => {
-        if (!inTouchStep) inTouchStep = xyInSquare(t.x, t.y, pixelPos.x, pixelPos.y)
+        if (!inActiveKeys) inActiveKeys = xyInSquare(t.x, t.y, pixelPos.x, pixelPos.y);
       });
 
-      const inScaleHighlighting = currentScale.pt.highlighting[scaleStep]
+      const inScaleHighlighting = (currentScale.pt.highlighting === undefined) ? 1 : currentScale.pt.highlighting[scaleStep];
 
       const octaveColors = {
         middle: [color("#A660FF"), color("#8239DE"), color("#662CE1")][1-inScaleHighlighting],
@@ -539,7 +674,7 @@ function drawGrid() {
         arc(pixelPos.x + keySize/2, pixelPos.y + keySize/2 - keySize*0.02, keySize*0.8, keySize*0.8, HALF_PI*3, HALF_PI)
       }
 
-      const circleSize = map(scaleStep, 1, currentScale.octave, keySize*0.2, keySize*0.7)
+      const circleSize = map(scaleStep, 1, currentScale.octaveSize, keySize*0.2, keySize*0.7)
       fill(color("#0B0E4520"))
       if (inCurrentStep) {
         fill(lerpColor(color("white"), outerColor, 0.1))
@@ -547,7 +682,7 @@ function drawGrid() {
       if (scaleStep > 0) circle(pixelPos.x + keySize/2, pixelPos.y + keySize/2 - keySize*0.03, circleSize)
 
 
-      if (inCursorStep || inTouchStep) {
+      if (isCursorKey || inActiveKeys) {
         fill("blue")
       } else if (inCurrentStep) {
         fill(baseColor)
@@ -558,7 +693,7 @@ function drawGrid() {
       }
       
       const deltaRelstep = xyToRelstep(x - scrollDelta.repetitionsX, y);
-      if (deltaRelstep >= 0 && deltaRelstep < currentScale.octave)
+      if (deltaRelstep >= 0 && deltaRelstep < currentScale.octaveSize)
       text(scaleStepName, pixelPos.x + keySize/2, pixelPos.y + keySize/2-keySize*0.3)
       
       if (inCurrentStep) {
@@ -583,13 +718,23 @@ function playSynth (midiArray, delay) {
   for (let m = 0; m < midiArray.length; m++) {
     const midi = midiArray[m];
 
-    const getOctave = Math.floor((midi+currentScale.octave*16)/currentScale.octave) -16
-    const pitchString = currentScale.pitches[midi - getOctave*currentScale.octave]
+    const getOctave = Math.floor((midi+currentScale.octaveSize*16)/currentScale.octaveSize) -16
+
+    function scaleStepToRatio (scaleStep) {
+      let pitch = 1;
+      if (currentScale.type === "ratios") {
+        const pitchString = currentScale.pitches[scaleStep];
+        //print(pitchString);
+        pitch = eval(pitchString);
+      } else if (currentScale.type === "equal") {
+        pitch = 2 ** (scaleStep / currentScale.octaveSize);
+      }
+      return pitch;
+    }
   
-    const pitch = eval(pitchString);
+    const pitch = scaleStepToRatio(midi - getOctave*currentScale.octaveSize);
     const baseHz = middlePitch * (2 ** getOctave)
     const playHz = baseHz * pitch
-    print(pitchString, "midi", midi, baseHz, playHz)
     playPulse(playHz, audioCtx.currentTime + delay);
   }
 }
