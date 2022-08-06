@@ -5,6 +5,7 @@ const compressor = new DynamicsCompressorNode(audioCtx);
 
 let currentStep = 0;
 let midiPitches = Array.from({ length: 8 }, () => ([]));
+let playPitches = [];
 let newMidiPitches = [];
 let middlePitch = 440;
 
@@ -394,6 +395,11 @@ function reactToIStart (newTouches) {
       const sqPos = pixelToXy(t.x - scrollDelta.x, t.y - scrollDelta.y)
       const relStep = xyToRelstep(sqPos.x + 2, sqPos.y)
       playSynth([relStep], 0);
+
+      const alreadyAt = playPitches.indexOf(relStep)
+      if (alreadyAt === -1) {
+        playPitches.push(relStep)
+      }
     });
   }
 
@@ -509,7 +515,7 @@ function reactToIEnd (newTouches) {
   if (wasGesture === "zoom" || wasGesture === "pan") return
   //keySize = baseKeySize * getZoomDelta(zoomSinceStart) //wtf?
 
-  if (mode === "edit") {
+  if (mode === "edit" || mode === "play") {
 
     scrollDelta = getScrollDelta(scrollXSinceStart, scrollYSinceStart)
 
@@ -519,15 +525,21 @@ function reactToIEnd (newTouches) {
       const relStep = xyToRelstep(sqPos.x + 2, sqPos.y) //2 is here because of the offset of -2 visually so there's 4 extra keys in width
       //debugText += sqPos.x + " " + sqPos.y + " - "
       
-      const alreadyAt = midiPitches[currentStep].indexOf(relStep)
-      if (alreadyAt === -1) {
-        midiPitches[currentStep].push(relStep)
+      if (mode === "edit") {
+        const alreadyAt = midiPitches[currentStep].indexOf(relStep);
+        if (alreadyAt === -1) {
+          midiPitches[currentStep].push(relStep);
+        } else {
+          midiPitches[currentStep].splice(alreadyAt, 1);
+        }
       } else {
-        midiPitches[currentStep].splice(alreadyAt, 1)
+        const alreadyPlaying = playPitches.indexOf(relStep);
+        if (alreadyPlaying !== -1) {
+          playPitches.splice(alreadyPlaying, 1);
+        }
       }
-      
     });
-    playSynth(midiPitches[currentStep], 0);
+    if (mode === "edit") playSynth(midiPitches[currentStep], 0);
   }
 }
 
@@ -626,9 +638,10 @@ function drawGrid () {
       const scaleStep = (relStep+currentScale.octaveSize*128) % currentScale.octaveSize
       const scaleStepName = (currentScale.type === "ratios") ? currentScale.pitches[scaleStep] : scaleStep
       
-      const inCurrentStep = midiPitches[currentStep].includes(relStep)
-      const inLastStep = (currentStep > 0) ? midiPitches[currentStep-1].includes(relStep) : midiPitches[7].includes(relStep)
-      const inNextStep = (currentStep < 7) ? midiPitches[currentStep+1].includes(relStep) : midiPitches[0].includes(relStep)
+      const inCurrentStep = midiPitches[currentStep].includes(relStep);
+      const inPlayPitches = playPitches.includes(relStep);
+      const inLastStep = (currentStep > 0) ? midiPitches[currentStep-1].includes(relStep) : midiPitches[7].includes(relStep);
+      const inNextStep = (currentStep < 7) ? midiPitches[currentStep+1].includes(relStep) : midiPitches[0].includes(relStep);
 
       let inActiveKeys = false;
       let isCursorKey = false;
@@ -651,14 +664,14 @@ function drawGrid () {
       const outerColor = lerpColor(baseColor, color("#0B0E45"), 0.2);
 
       fill(outerColor)
-      if (inCurrentStep) {
+      if (inCurrentStep || inPlayPitches) {
         fill(lerpColor(color("white"), baseColor, 0.5))
       }
       rect(pixelPos.x, pixelPos.y, keySize, keySize, keySize*0.2)
 
       noStroke()
 
-      if (inCurrentStep) {
+      if (inCurrentStep || inPlayPitches) {
         fill(lerpColor(color("white"), baseColor, 0.2))
       } else {
         fill(baseColor)
@@ -676,7 +689,7 @@ function drawGrid () {
 
       const circleSize = map(scaleStep, 1, currentScale.octaveSize, keySize*0.2, keySize*0.7)
       fill(color("#0B0E4520"))
-      if (inCurrentStep) {
+      if (inCurrentStep || inPlayPitches) {
         fill(lerpColor(color("white"), outerColor, 0.1))
       }
       if (scaleStep > 0) circle(pixelPos.x + keySize/2, pixelPos.y + keySize/2 - keySize*0.03, circleSize)
@@ -684,7 +697,7 @@ function drawGrid () {
 
       if (isCursorKey || inActiveKeys) {
         fill("blue")
-      } else if (inCurrentStep) {
+      } else if (inCurrentStep || inPlayPitches) {
         fill(baseColor)
       } else {
         fill(lerpColor(baseColor, color("white"), 0.7))
@@ -696,11 +709,11 @@ function drawGrid () {
       if (deltaRelstep >= 0 && deltaRelstep < currentScale.octaveSize)
       text(scaleStepName, pixelPos.x + keySize/2, pixelPos.y + keySize/2-keySize*0.3)
       
-      if (inCurrentStep) {
+      if (inCurrentStep || inPlayPitches) {
         text(relStep, pixelPos.x + keySize/2, pixelPos.y + keySize/2+keySize*0.2)
       } 
       if (relStep === 0) {
-        if (inCurrentStep) {fill("white")} else {fill(outerColor)}
+        if (inCurrentStep || inPlayPitches) {fill("white")} else {fill(outerColor)}
         noStroke()
         text(middlePitch, pixelPos.x + keySize/2, pixelPos.y + keySize/2-keySize*0.05)
       }
