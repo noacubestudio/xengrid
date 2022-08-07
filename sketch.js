@@ -9,12 +9,14 @@ let playPitches = [];
 let newMidiPitches = [];
 let middlePitch = 440;
 
+// key grid
+
 let baseKeySize = 50;
 let keySize = 0;
 let maxX = 1;
 let maxY = 1;
 
-// touch gestures
+// interaction gestures
 
 let wasGesture = "";
 let usingMouse = false;
@@ -33,6 +35,8 @@ let zoomTo = undefined;
 let scrollXSinceStart = 0;
 let scrollYSinceStart = 0;
 let zoomSinceStart = 1;
+
+// state
 
 let frameCountdown = 2;
 
@@ -161,7 +165,8 @@ const scales = {
 // starting scale
 let currentScale = scales.edo19;
 
-//midiPitches[0] = [0, 4, 7, -12, -16, 34]
+
+
 
 function getKeyByValue(object, value) {
   return Object.keys(object).find(key => object[key] === value);
@@ -485,6 +490,7 @@ function handleMouseMove () {
 function handleWheel (evt) {
   evt.preventDefault();
   zoomSinceStart = zoomSinceStart * (1 + evt.deltaY * -0.002);
+  drawAfterInput();
 }
 
 function reactToIEnd (newTouches) {
